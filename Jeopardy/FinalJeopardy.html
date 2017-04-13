@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <meta charset="utf-8" />
+    <link href='http://fonts.googleapis.com/css?family=Lato&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+    <link href="//db.onlinewebfonts.com/c/871fe0d078853d778f22b83af5c27159?family=ITCKorinnaW01-Regular" rel="stylesheet" type="text/css" />
+    <link href="//db.onlinewebfonts.com/c/6a891befed317fa85014538362250762?family=Swiss+911" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+        var qArr;
+        $(document).ready(function () {
+            $('#showQuestion, #jp-main').css('height', $(window).height() + 'px');
+            getQuestions();
+            $('#fq').click(function () {
+                var qid = $(this).data('qid');
+                finishQuestion(qid);
+            });
+
+            $('#showQuestion span').click(function () {
+                $('#scoreUpdater, #fq').css('opacity', 1);
+            });
+        });
+        $.fn.serializeObject = function () {
+            var o = {};
+            var a = this.serializeArray();
+            $.each(a, function () {
+                if (o[this.name] !== undefined) {
+                    if (!o[this.name].push) {
+                        o[this.name] = [o[this.name]];
+                    }
+                    o[this.name].push(this.value || '');
+                } else {
+                    o[this.name] = this.value || '';
+                }
+            });
+            return o;
+        };
+        function getQuestions() {
+            $.ajax("http://localhost:34891/api/FinalJeopardy?id=" + getUrlParam(location.search, 'g'))
+                .done(function (data) {
+                    console.log(data);
+                    qArr = $.grep(data.CQ, function (n, i) {
+                        return data.CQ[i].Played == false;
+                    }
+                )[0];
+                    renderPage(qArr, data.PP);
+                }).fail(function () {
+
+                });
+        }
+        function finishQuestion(qid) {
+            if (qid != 0) {
+                $('#showQuestion').css('opacity', 0);
+                $.ajax({
+                    method: "POST",
+                    url: "http://localhost:34891/api/Home",
+                    data: { Qid: qid }
+                }).done(function (data) {
+
+                }).fail(function () {
+
+                });
+            }
+        }
+        function postScore(pid, qid, value, prnt) {
+            $.ajax({
+                method: "POST",
+                url: "http://localhost:34891/api/Score",
+                data: {
+                    Game: getUrlParam(location.search, 'g'),
+                    PlayerID: pid,
+                    QuestionID: qid,
+                    Value: value
+                }
+            }).done(function (data) {
+                $(prnt).find('button').addClass('disabled');
+                console.log(data);
+            }).fail(function () {
+
+            });
+        }
+        function renderPage(d, p) {
+            var html = qs = phtml = pt = "";
+
+
+            html += $('#ctemplate').html();
+            qs = "";
+            html = html.replace('{{CategoryName}}', d.CategoryName)
+                .replace('{{cNum}}', 0)
+                .replace('{{qNum}}', 0);
+
+            for (var i = 0; i < p.length; i++) {
+                phtml += $('#anstemplate').html();
+                pt += $('#ptemplate').html();
+                phtml = phtml.replace('{{Name}}', p[i].Name).replace('{{pid}}', p[i].PlayerID);
+                pt = pt.replace('{{Name}}', p[i].Name).replace('{{Points}}', p[i].Points > 0 ? '$' + p[i].Points : p[i].Points.toString().replace('-', '-$'));
+            }
+            $('#scoreUpdater').html(phtml);
+            $('#categories').html(html).fadeIn(300);
+            $('#pointBoard').html(pt);
+            $('#jp-main').fadeIn(300);
+            $('#jp-main .category').first().css('margin-left', ($('.col-md-12').width() - $('#jp-main .category').length * $('.category').width()) / 2 + 'px');
+            $('.cname span').css('width', $('.cname').width() + 'px');
+
+            $('.corAns').click(function () {
+                var prnt = $(this).parents('.player');
+                var points = parseInt(prnt.find('input').val());
+                if (!isNaN(points))
+                    postScore(prnt.data('pid'), prnt.data('qid'), points, prnt);
+            });
+        }
+        function showQuestion() {
+            $('#jp-main').hide();
+            $('#fq').data('qid', qArr.QuestionID);
+            $('.player').attr({ "data-qid": qArr.QuestionID });
+            $('#showQuestion span').html(qArr.Question);
+            $('#scoreUpdater, #fq').css('opacity', 0);
+            $('#showQuestion').animate({
+                opacity: 1
+            }, {
+                duration: 500
+            });
+        }
+        function getUrlParam(pURL, param) {
+            if (param.length == 0) return '';
+            var regex = '[?&]' + param + '=([^&#]*)';
+            var results = (new RegExp(regex)).exec(pURL);
+            if (results) return $.trim(results[1]);
+            return '';
+        }
+    </script>
+    <style type="text/css">
+        body {
+            background-color: #020f8f;
+            /*overflow: hidden;*/
+        }
+
+        div {
+            text-align: center;
+            font-family: 'Lato';
+        }
+
+        .container-full {
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 10%;
+        }
+
+        #jp-main {
+            display: none;
+            /*padding-top: 50px;*/
+        }
+
+        #fJeopardy {
+            color: white;
+            font-size: 7em;
+            font-family: 'Swiss 911';
+            width: 100%;
+        }
+
+        #categories {
+            display: flex;
+            padding: 200px 0;
+        }
+
+        .category {
+            float: left;
+            width: 18%;
+            padding: 0;
+            border-bottom: 8px solid black;
+            border-top: 4px solid black;
+        }
+
+            .category:first-of-type {
+                border-left: 4px solid black;
+            }
+
+            .category:last-of-type {
+                border-right: 4px solid black;
+            }
+
+        #pointBoard {
+            padding: 50px;
+            color: white;
+            font-size: 4em;
+        }
+
+        .points {
+            display: inline-block;
+            max-width: 18%;
+            margin: 0 100px;
+        }
+
+            .points span {
+                display: block;
+            }
+
+        .qvalue {
+            width: 100%;
+            font-size: 5em;
+            cursor: pointer;
+            color: #fbb204;
+            border: 4px solid black;
+            border-bottom: none;
+            height: 120px;
+            font-family: impact;
+            font-weight: 100;
+            text-shadow: 2px 2px 4px #000000;
+        }
+
+            .qvalue:hover {
+                background-color: #000098;
+            }
+
+        .cname {
+            font-size: 40px;
+            height: 130px;
+            border: 4px solid black;
+            color: white;
+            font-family: 'Swiss 911';
+        }
+
+            .cname span {
+                height: 122px;
+                display: table-cell;
+                font-family: 'Swiss 911';
+                vertical-align: middle;
+            }
+
+        #showQuestion {
+            display: table-cell;
+            color: white;
+            vertical-align: middle;
+            visibility: visible;
+            opacity: 0;
+            padding: 0 100px;
+        }
+
+            #showQuestion span {
+                font-size: 5em;
+                font-family: 'ITCKorinnaW01-Regular';
+                text-transform: uppercase;
+            }
+
+        #scoreUpdater, #fq {
+            opacity: 0;
+        }
+
+        .played {
+            text-indent: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            cursor: default;
+            background-color: #000098;
+        }
+
+        #fq {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .player {
+            display: inline-block;
+            max-width: 17%;
+            margin: 30px 60px 60px;
+            font-size: 20px;
+        }
+
+            .player button {
+                width: 100%;
+                margin-bottom: 15px;
+            }
+    </style>
+</head>
+<body>
+    <div class="container-full">
+        <div class="row">
+            <div class="col-md-12">
+                <div id="jp-main">
+                    <div id="categories"></div>
+                    <div id="pointBoard"></div>
+                </div>
+
+                <div id="showQuestion">
+                    <span></span>
+                    <div id="scoreUpdater">
+                    </div>
+                    <button id="fq" class="btn btn-warning btn-lg" data-qid="0">Finish Question</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+    <div style="display:none">
+        <div id="ctemplate">
+            <div id="fJeopardy" onclick="javascript:showQuestion({{cNum}},{{qNum}})">{{CategoryName}}</div>
+        </div>
+        <div class="question">
+            <!--<span class="qtext">{{QuestionName}}</span>-->
+            <div class="qvalue {{status}}" onclick="javascript:showQuestion({{cNum}},{{qNum}})"><span class="ds">$</span>{{Value}}</div>
+        </div>
+        <div id="anstemplate">
+            <div class="player" data-pid="{{pid}}" data-qid="0" data-value="0">
+                {{Name}}
+                <input type="text" class="form-control">
+                <button class="corAns btn btn-primary btn-lg">Submit</button>
+            </div>
+        </div>
+        <div id="ptemplate">
+            <div class="points">
+                {{Name}}
+                <span>{{Points}}</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
